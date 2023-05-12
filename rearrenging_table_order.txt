@@ -1,0 +1,251 @@
+======APPLY ON TABLE ROW REARRENGE======
+HTML======
+<div class="table-responsive">
+    <table class="table table-hover" id="expertsTable" style="width:100%">
+        <thead>
+            <tr>                                        
+                <th>order</th>
+                <th>name</th>
+                <th>profession</th>
+                <th>specialties</th>
+                <th>avatar</th>
+                <th>slug</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in expertslist %}
+            <tr id="{{i.id}}" style="cursor:move;">
+                <td>
+                    <a href="#" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-original-title="Click here to view/edit order">
+                        <span>{{i.order}} <i data-feather="edit"></i></span>
+                    </a>
+                </td>
+                <td>
+                    <span class="fw-bold">{{i.name}}</span>
+                </td>
+                <td>{{i.profession}}</td>
+                <td>{{i.specialties}}</td>
+                <td>{{i.avatar}}</td>
+                <td>{{i.slug}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+JS======
+<!-- Include jQuery UI library REARRENGING ORDER for desktop mode-->
+<script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+<!-- Include jQuery UI Touch Punch library REARRENGING ORDER for mobile mode-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
+
+<script>
+$(document).ready(function () {    
+    $('#expertsTable').DataTable({
+        //"lengthMenu": [2, 4, 6, 8, 10],
+        //"pageLength": 10,
+        "ordering": false
+    });
+
+    var $tableSort = $('#expertsTable tbody');
+    var $dataTable = $('#expertsTable');
+    var tableData = $dataTable.DataTable();
+    //for enable disable sorting on search
+    tableData.on('search.dt', function (e, settings) {
+        if (tableData.search()) {
+            $tableSort.sortable('disable');
+        }
+        else {
+            $tableSort.sortable('enable');
+        }
+    });
+    //for sorting table data
+    $tableSort.sortable({
+        axis: "y",
+        items: 'tr',
+        helper: function (e, ui) {
+            ui.children().each(function () {
+                $(this).width($(this).width());
+            });
+            return ui;
+        },
+        update: function (event, ui) {
+            var orderedArray = [];
+            var csrf = $('input[name=csrfmiddlewaretoken]').val();
+            var tableData = $('#expertsTable').DataTable();
+            var pageStart = tableData.page.info().start
+            if (pageStart){
+                for (let index = 0; index < $tableSort.sortable('toArray').length; index++) {
+                    var orderedObj = {};
+                    orderedObj['id'] = parseInt($tableSort.sortable('toArray')[index]);
+                    orderedObj['order'] = index + pageStart;
+                    orderedArray.push(orderedObj);
+                }
+            }
+            else{
+                for (let index = 0; index < $tableSort.sortable('toArray').length; index++) {
+                    var orderedObj = {};
+                    orderedObj['id'] = parseInt($tableSort.sortable('toArray')[index]);
+                    orderedObj['order'] = index;
+                    orderedArray.push(orderedObj);
+                }
+            }
+            $.ajax({
+                url: "{% url 'echobuddy_expert_order' %}",
+                method: "POST",
+                data: {
+                    orderedArray: JSON.stringify(orderedArray),
+                    csrfmiddlewaretoken: csrf
+                },
+                success: function (data) {
+                    if (data.status === true) {
+                        d_icon = 'success'
+                    } else {
+                        d_icon = 'error'
+                    }
+                    Swal.fire({
+                        position: 'top-end',
+                        icon: d_icon,
+                        title: data.message,
+                        showConfirmButton: false,
+                        timer: 1000
+                    });
+                    setTimeout(function() { location.reload(); }, 1000); // reload the page 1000ms = 1 second
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    Swal.fire({
+                        position: 'top-end',
+                        icon: 'error',
+                        title: 'unable to update',
+                        showConfirmButton: false,
+                        timer: 1000
+                    });
+                    setTimeout(function() { location.reload(); }, 1000); // reload the page 1000ms = 1 second
+                }
+            });
+        }
+    });
+});
+</script>
+
+URLS.PY======
+path('echobuddy_expert_order/',views.echobuddy_expert_order,name="echobuddy_expert_order"),
+
+VIEWS.PY======
+from django.http import JsonResponse
+import json
+#echobuddy_expert_order update
+def echobuddy_expert_order(request):
+    if request.method == 'POST':
+        try:
+            experts_order = json.loads(request.POST.get('orderedArray'))
+            for expert in experts_order:
+                echoapp_experts.objects.filter(id=expert['id']).update(
+                    order=expert['order']
+                )
+            return JsonResponse({'status': True, 'message': 'order updated successfully'})
+        except Exception as e: 
+            return JsonResponse({'status': False, 'message': str(e)})    
+    else:
+        return JsonResponse({'status': False, 'message': 'method not supported'})
+
+
+
+======APPLY ON DIV REARRENGE======	
+HTML======	
+<div class="echo-doctor-list">
+	<p>Recommended counsellors</p>
+	<div class="echo-schedule-body">
+	{% for expert in expertslist %}
+		<a href="../echo_buddycalender/{{expert.id}}" class=" echo-schedule-items flex flexTtop" id="{{expert.id}}" style="cursor:move;">
+			<div class="echo-schedule-avtar">
+				<img src="../../{{expert.avatar}}" alt="expert img">
+			</div>
+			<div class="echo-schedule-contact">
+				<h5>{{expert.name}}</h5>
+				<p>{{expert.profession}}</p>
+				<p>{{expert.specialties}}</p>
+				<div class="echo-schedule-time-div">
+					<img src="{% static 'echocompanionassets/images/calendar-02.svg' %}" alt="">
+					<label>{{expert.start_day}}-{{expert.end_day}}</label>
+					<img src="{% static 'echocompanionassets/images/clock-01.svg' %}" alt="">
+					<label>{{expert.start_time}}-{{expert.end_time}}</label>
+				</div>
+			</div>
+		</a>
+	{% endfor %}
+	</div>
+</div>
+
+JS======
+<!-- Include jQuery UI library REARRENGING ORDER for desktop mode-->
+<script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+<!-- Include jQuery UI Touch Punch library REARRENGING ORDER for mobile mode-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
+$('.echo-schedule-body').sortable({
+	axis: 'y',
+	opacity: 0.5,
+	update: function(event, ui) {
+		var expert_order = [];
+		$('.echo-schedule-items').each(function() {
+			expert_order.push($(this).attr('id'));
+		});
+		// Send an HTTP request to update the expert order
+		$.ajax({
+			url: '../update_expert_order/',
+			type: 'POST',
+			data: {
+				'expert_order[]': expert_order,
+				'csrfmiddlewaretoken': '{{ csrf_token }}'
+			},
+			success: function (data) {
+				if (data.status === true) {
+					d_icon = 'success'
+				} else {
+					d_icon = 'error'
+				}
+				Swal.fire({
+					position: 'center',
+					icon: d_icon,
+					title: data.message,
+					showConfirmButton: false,
+					timer: 1000
+				});
+			},
+			error: function (xhr, ajaxOptions, thrownError) {
+				Swal.fire({
+					position: 'center',
+					icon: 'error',
+					title: 'unable to update',
+					showConfirmButton: false,
+					timer: 1000
+				});
+			}
+		});
+	}
+});		
+
+URLS.PY======
+path('update_expert_order/',views.update_expert_order,name="update_expert_order"),
+
+VIEWS.PY======
+from django.http import JsonResponse
+# REARRENGING ORDER
+def update_expert_order(request):
+    if request.method == "POST":
+        try:
+            expert_order = request.POST.getlist('expert_order[]')
+            # Loop through the expertslist and update their order field based on the expert_order list
+            for index, expert_id in enumerate(expert_order):
+                expert = echoapp_experts.objects.get(pk=expert_id)
+                expert.order = index
+                expert.save()
+            return JsonResponse({'status': True, 'message': 'order updated successfully'})
+        except Exception as e: 
+            return JsonResponse({'status': False, 'message': str(e)})    
+    else:
+        return JsonResponse({'status': False, 'message': 'method not supported'})		
+		
+
+
+
